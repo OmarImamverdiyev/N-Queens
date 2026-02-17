@@ -1,6 +1,8 @@
-# utils.py
+"""General utility helpers for N-Queens."""
+
 
 def is_valid(board):
+    """Return True if no two queens attack each other."""
     n = len(board)
     for i in range(n):
         for j in range(i + 1, n):

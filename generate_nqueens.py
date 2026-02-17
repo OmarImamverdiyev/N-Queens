@@ -7,8 +7,53 @@ import sys
 # ------------------------------
 
 def generate_random_board(n):
-    """Generate random N-Queens board (may contain conflicts)."""
-    return [random.randint(0, n - 1) for _ in range(n)]
+    """Generate a random board with exactly one queen per column."""
+    return random.sample(range(n), n)
+
+
+def _conflict_count(board):
+    """Return number of attacking queen pairs for a board permutation."""
+    n = len(board)
+    col_count = [0] * n
+    diag1_count = [0] * (2 * n)
+    diag2_count = [0] * (2 * n)
+
+    for row, col in enumerate(board):
+        col_count[col] += 1
+        diag1_count[row - col + n] += 1
+        diag2_count[row + col] += 1
+
+    conflicts = 0
+    for count in col_count:
+        conflicts += count * (count - 1) // 2
+    for count in diag1_count:
+        conflicts += count * (count - 1) // 2
+    for count in diag2_count:
+        conflicts += count * (count - 1) // 2
+    return conflicts
+
+
+def generate_easy_board(n, attempts=200):
+    """
+    Generate an easy board by sampling random permutations and
+    returning the one with the fewest conflicts.
+    """
+    best_board = generate_random_board(n)
+    best_score = _conflict_count(best_board)
+
+    if best_score == 0:
+        return best_board
+
+    for _ in range(attempts - 1):
+        board = generate_random_board(n)
+        score = _conflict_count(board)
+        if score < best_score:
+            best_board = board
+            best_score = score
+            if best_score == 0:
+                break
+
+    return best_board
 
 
 def generate_constructive_solution(n):
@@ -60,7 +105,7 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 3:
         print("Usage:")
-        print("  python generate_nqueens.py <n> <output_file> [--random | --solution | --hard-diagonal | --hard-anti]")
+        print("  python generate_nqueens.py <n> <output_file> [--random | --easy | --solution | --hard-diagonal | --hard-anti]")
         sys.exit(1)
 
     n = int(sys.argv[1])
@@ -70,6 +115,10 @@ if __name__ == "__main__":
     if mode == "--solution":
         board = generate_constructive_solution(n)
         print(f"Generated valid constructive solution for n={n}")
+
+    elif mode == "--easy":
+        board = generate_easy_board(n)
+        print(f"Generated EASY board for n={n}")
 
     elif mode == "--hard-diagonal":
         board = generate_diagonal(n)

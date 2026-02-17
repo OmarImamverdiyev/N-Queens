@@ -1,75 +1,39 @@
-# csp.py
-import random
+"""
+Backward-compatible CSP interface for N-Queens.
+
+This wrapper keeps the old `NQueensCSP` API while delegating work to:
+- `nqueens.csp_state.NQueensState` for board/counter management
+- `nqueens.min_conflicts.solve_min_conflicts` for project solving logic
+
+Authors: Omar Imamverdiyev, Mehriban Aliyeva
+"""
+
+from __future__ import annotations
+
+from nqueens.csp_state import NQueensState
+from nqueens.min_conflicts import solve_min_conflicts
 
 
 class NQueensCSP:
-    def __init__(self, n, initial_board=None):
-        self.n = n
+    """Compatibility class used by `main.py` and existing imports."""
 
-        if initial_board:
-            self.board = initial_board.copy()
-        else:
-            self.board = [random.randint(0, n - 1) for _ in range(n)]
+    def __init__(self, n: int, initial_board: list[int] | None = None):
+        self.state = NQueensState(n=n, board=initial_board or [])
+        self.n = self.state.n
 
-        self.col_count = [0] * n
-        self.diag1_count = [0] * (2 * n)
-        self.diag2_count = [0] * (2 * n)
+    @property
+    def board(self) -> list[int]:
+        """Expose board through the legacy attribute name."""
+        return self.state.board
 
-        self._build_counters()
+    def conflicts(self, row: int, col: int) -> int:
+        """Delegate conflict calculation to state object."""
+        return self.state.conflicts(row, col)
 
-    def _build_counters(self):
-        for row in range(self.n):
-            col = self.board[row]
-            self.col_count[col] += 1
-            self.diag1_count[row - col + self.n] += 1
-            self.diag2_count[row + col] += 1
-
-    def conflicts(self, row, col):
-        return (
-            self.col_count[col]
-            + self.diag1_count[row - col + self.n]
-            + self.diag2_count[row + col]
-            - 3 * (self.board[row] == col)
-        )
-
-    def solve(self, max_steps=100000):
-        for _ in range(max_steps):
-
-            conflicted_rows = [
-                row for row in range(self.n)
-                if self.conflicts(row, self.board[row]) > 0
-            ]
-
-            if not conflicted_rows:
-                return True
-
-            row = random.choice(conflicted_rows)
-
-            min_conf = float("inf")
-            best_cols = []
-
-            for col in range(self.n):
-                c = self.conflicts(row, col)
-                if c < min_conf:
-                    min_conf = c
-                    best_cols = [col]
-                elif c == min_conf:
-                    best_cols.append(col)
-
-            new_col = random.choice(best_cols)
-            self._move_queen(row, new_col)
-
-        return False
-
-    def _move_queen(self, row, new_col):
-        old_col = self.board[row]
-
-        self.col_count[old_col] -= 1
-        self.diag1_count[row - old_col + self.n] -= 1
-        self.diag2_count[row + old_col] -= 1
-
-        self.board[row] = new_col
-
-        self.col_count[new_col] += 1
-        self.diag1_count[row - new_col + self.n] += 1
-        self.diag2_count[row + new_col] += 1
+    def solve(self, max_steps: int = 100_000) -> bool:
+        """
+        Solve N-Queens using the project iterative CSP solver.
+        """
+        # Project mode always begins from a fresh random permutation board.
+        self.state = NQueensState(n=self.n, board=[])
+        return solve_min_conflicts(self.state, max_steps=max_steps)
