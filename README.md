@@ -71,6 +71,12 @@ Run with a higher step limit:
 python main.py .\test1.txt --max-steps 300000
 ```
 
+## Unit Tests
+Run the unit test suite:
+```bash
+python -m unittest -v tests\test_nqueens.py
+```
+
 ## Input Generator
 Generate test files:
 ```bash
