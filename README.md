@@ -1,7 +1,6 @@
 # Project 2 - CSP - NQueens
 
-Project by: Omar Imamverdiyev  
-Peer Reviewed by: Mehriban Aliyeva
+Project by: Omar Imamverdiyev, Mehriban Aliyeva
 
 ## Overview
 This project solves the N-Queens problem on an `n x n` board using a CSP-based iterative search approach.
