@@ -1,11 +1,6 @@
 import random
 import sys
 
-
-# ------------------------------
-# Board Generators
-# ------------------------------
-
 def generate_random_board(n):
     """Generate a random board with exactly one queen per column."""
     return random.sample(range(n), n)
@@ -87,19 +82,11 @@ def generate_anti_diagonal(n):
     return list(reversed(range(n)))
 
 
-# ------------------------------
-# File Writer
-# ------------------------------
-
 def write_board(board, filename):
     with open(filename, "w") as f:
         for col in board:
             f.write(str(col) + "\n")
 
-
-# ------------------------------
-# Main
-# ------------------------------
 
 if __name__ == "__main__":
 
