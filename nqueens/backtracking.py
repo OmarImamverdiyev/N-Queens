@@ -1,88 +1,117 @@
-"""
-Backtracking CSP solver with MRV, LCV, tie-breaking, and AC-3.
-
-Authors: Omar Imamverdiyev, Mehriban Aliyeva
-"""
-
 from __future__ import annotations
+
+from typing import Optional
 
 from nqueens.ac3 import ac3, queens_compatible
 
 
-def _select_unassigned_row(
-    domains: list[set[int]],
-    assigned: set[int],
-    n: int,
-) -> int:
+def _is_consistent(row: int, col: int, assignment: list[int]) -> bool:
+    for r2, c2 in enumerate(assignment):
+        if c2 == -1 or r2 == row:
+            continue
+        if not queens_compatible(row, col, r2, c2):
+            return False
+    return True
+
+
+def _select_unassigned_var(domains: list[set[int]], assignment: list[int]) -> int:
     """
-    Choose the next row using MRV, then a deterministic tie-break.
-
-    Tie-break rule:
-    - smaller domain size (MRV)
-    - then smaller row index for reproducibility
+    MRV: choose unassigned row with smallest domain size.
+    Tie-break: smallest row index.
     """
-    candidates = [row for row in range(n) if row not in assigned]
-    return min(candidates, key=lambda row: (len(domains[row]), row))
+    best_row = -1
+    best_size = 10**18
+    for r in range(len(assignment)):
+        if assignment[r] != -1:
+            continue
+        size = len(domains[r])
+        if size < best_size:
+            best_size = size
+            best_row = r
+    return best_row
 
 
-def _lcv_order(
+def _order_values_lcv(
     row: int,
     domains: list[set[int]],
-    assigned: set[int],
-    n: int,
+    assignment: list[int],
+    preferred_col: int | None,
 ) -> list[int]:
     """
-    Sort values by Least Constraining Value (LCV).
-
-    A value is better when it removes fewer values from neighbors.
+    LCV ordering + optional preference:
+    - Prefer trying the input-file column first (as a hint), if present in domain.
+    - Then the rest by LCV (least eliminations).
     """
-    unassigned_neighbors = [r for r in range(n) if r not in assigned and r != row]
+    n = len(assignment)
+    neighbors = [r for r in range(n) if r != row and assignment[r] == -1]
 
-    def elimination_count(col: int) -> int:
+    def elim_count(col: int) -> int:
         removed = 0
-        for other_row in unassigned_neighbors:
-            for other_col in domains[other_row]:
-                if not queens_compatible(row, col, other_row, other_col):
+        for r2 in neighbors:
+            for c2 in domains[r2]:
+                if not queens_compatible(row, col, r2, c2):
                     removed += 1
         return removed
 
-    return sorted(domains[row], key=lambda col: (elimination_count(col), col))
+    ordered = sorted(domains[row], key=lambda c: (elim_count(c), c))
+
+    # Move preferred_col to the front if it's available
+    if preferred_col is not None and preferred_col in domains[row]:
+        ordered = [preferred_col] + [c for c in ordered if c != preferred_col]
+
+    return ordered
 
 
-def _backtrack(
-    domains: list[set[int]],
-    assigned: set[int],
-    n: int,
-) -> list[int] | None:
-    if len(assigned) == n:
-        return [next(iter(domains[row])) for row in range(n)]
-
-    row = _select_unassigned_row(domains, assigned, n)
-
-    for col in _lcv_order(row, domains, assigned, n):
-        new_domains = [domain.copy() for domain in domains]
-        new_domains[row] = {col}
-
-        # AC-3 propagation triggered from this assignment.
-        queue = [(other, row) for other in range(n) if other != row]
-        if ac3(new_domains, active_rows=list(range(n)), initial_queue=queue):
-            new_assigned = assigned.copy()
-            new_assigned.add(row)
-
-            result = _backtrack(new_domains, new_assigned, n)
-            if result is not None:
-                return result
-
-    return None
-
-
-def solve_backtracking_ac3(n: int) -> list[int] | None:
+def solve_csp_mac(n: int, initial_board_hint: list[int] | None = None) -> Optional[list[int]]:
     """
-    Solve N-Queens by CSP backtracking + AC-3.
+    Solve N-Queens using MAC (Backtracking + AC-3).
 
-    This method is exact but expensive for large n.
+    IMPORTANT for your input format:
+    - input file is ALWAYS a full permutation board (no -1)
+    - we do NOT treat it as fixed
+    - we only use it as an optional value-ordering hint
     """
-    domains = [set(range(n)) for _ in range(n)]
-    if not ac3(domains):
+    hint = (initial_board_hint or []).copy()
+    if len(hint) != n:
+        hint = (hint + [-1] * n)[:n]
+
+    assignment = [-1] * n
+    domains: list[set[int]] = [set(range(n)) for _ in range(n)]
+
+    # Initial propagation (mostly does nothing at start, but keeps logic consistent)
+    if not ac3(domains, active_rows=list(range(n))):
         return None
-    return _backtrack(domains, assigned=set(), n=n)
+
+    def backtrack(domains: list[set[int]], assignment: list[int]) -> Optional[list[int]]:
+        if all(v != -1 for v in assignment):
+            return assignment
+
+        row = _select_unassigned_var(domains, assignment)
+        if row == -1:
+            return assignment
+
+        preferred = hint[row]
+        if not (0 <= preferred < n):
+            preferred = None
+
+        for col in _order_values_lcv(row, domains, assignment, preferred):
+            if not _is_consistent(row, col, assignment):
+                continue
+
+            new_assignment = assignment.copy()
+            new_assignment[row] = col
+
+            new_domains = [d.copy() for d in domains]
+            new_domains[row] = {col}
+
+            # Maintain Arc Consistency after assignment
+            if not ac3(new_domains, active_rows=list(range(n))):
+                continue
+
+            res = backtrack(new_domains, new_assignment)
+            if res is not None:
+                return res
+
+        return None
+
+    return backtrack(domains, assignment)

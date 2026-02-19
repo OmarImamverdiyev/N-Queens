@@ -2,10 +2,6 @@ import random
 import sys
 
 
-# ------------------------------
-# Board Generators
-# ------------------------------
-
 def generate_random_board(n):
     """Generate a random board with exactly one queen per column."""
     return random.sample(range(n), n)

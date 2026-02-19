@@ -1,20 +1,26 @@
 import argparse
 
-from nqueens.csp import NQueensCSP
 from nqueens.io_utils import read_input
 from nqueens.utils import is_valid
 
+from nqueens.csp import NQueensCSP
+
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Solve N-Queens from an input board file.",
-    )
+    parser = argparse.ArgumentParser(description="Solve N-Queens from an input board file.")
     parser.add_argument("input_file", help="Path to input file (one column index per row).")
+
+    parser.add_argument(
+        "--mode",
+        choices=["iterative", "csp"],
+        default="iterative",
+        help="Solver mode: iterative(min-conflicts) or csp(backtracking+AC3).",
+    )
     parser.add_argument(
         "--max-steps",
         type=int,
         default=100_000,
-        help="Maximum iterative steps for project solver.",
+        help="Maximum iterative steps for iterative solver.",
     )
     args = parser.parse_args()
 
@@ -23,9 +29,11 @@ def main() -> None:
     if not (10 <= n <= 1000):
         raise ValueError(f"n must be between 10 and 1000, got {n}")
 
-    solver = NQueensCSP(n, initial_board)
+    solver = NQueensCSP(n=n, initial_board=initial_board, mode=args.mode)
 
-    if solver.solve(max_steps=args.max_steps):
+    ok = solver.solve(max_steps=args.max_steps)
+
+    if ok:
         print("Solution found!")
         print(solver.board)
         print("Valid:", is_valid(solver.board))
