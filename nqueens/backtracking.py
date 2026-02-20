@@ -63,22 +63,11 @@ def _order_values_lcv(
 
 
 def solve_csp_mac(n: int, initial_board_hint: list[int] | None = None) -> Optional[list[int]]:
-    """
-    Solve N-Queens using MAC (Backtracking + AC-3).
-
-    IMPORTANT for your input format:
-    - input file is ALWAYS a full permutation board (no -1)
-    - we do NOT treat it as fixed
-    - we only use it as an optional value-ordering hint
-    """
     hint = (initial_board_hint or []).copy()
-    if len(hint) != n:
-        hint = (hint + [-1] * n)[:n]
 
     assignment = [-1] * n
     domains: list[set[int]] = [set(range(n)) for _ in range(n)]
 
-    # Initial propagation (mostly does nothing at start, but keeps logic consistent)
     if not ac3(domains, active_rows=list(range(n))):
         return None
 
