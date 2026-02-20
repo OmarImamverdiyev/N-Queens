@@ -17,9 +17,16 @@ from nqueens.min_conflicts import solve_min_conflicts
 class NQueensCSP:
     """Compatibility class used by `main.py` and existing imports."""
 
-    def __init__(self, n: int, initial_board: list[int] | None = None):
+    def __init__(
+        self,
+        n: int,
+        initial_board: list[int] | None = None,
+        start_mode: str = "random",
+    ):
         self.state = NQueensState(n=n, board=initial_board or [])
         self.n = self.state.n
+        self._initial_board = (initial_board or []).copy()
+        self.start_mode = start_mode
 
     @property
     def board(self) -> list[int]:
@@ -34,6 +41,10 @@ class NQueensCSP:
         """
         Solve N-Queens using the project iterative CSP solver.
         """
-        # Project mode always begins from a fresh random permutation board.
-        self.state = NQueensState(n=self.n, board=[])
+        if self.start_mode == "input":
+            self.state = NQueensState(n=self.n, board=self._initial_board)
+        elif self.start_mode == "random":
+            self.state = NQueensState(n=self.n, board=[])
+        else:
+            raise ValueError(f"Unknown start_mode: {self.start_mode!r}")
         return solve_min_conflicts(self.state, max_steps=max_steps)

@@ -15,11 +15,13 @@ Recent updates focus on improving practical performance for larger boards while 
   - `nqueens/csp.py`
   - `nqueens/min_conflicts.py`
 
-### 2. Start with a random board, one queen in each column
-- Project solver always starts from a fresh random permutation board.
+### 2. Start state options
+- Option 1: start from a fresh random permutation board by providing only `n`.
+- Option 2: start directly from `input.txt` by providing `--input-file`.
 - A permutation guarantees exactly one queen per column.
 - Implemented in:
-  - `nqueens/csp.py` (project solver initialization)
+  - `main.py` (CLI source selection)
+  - `nqueens/csp.py` (start mode selection)
   - `nqueens/csp_state.py` (random permutation board support)
 
 ### 3. Use iterative search algorithm
@@ -80,14 +82,19 @@ Recent updates focus on improving practical performance for larger boards while 
 - `generate_nqueens.py`: Input generator utilities.
 
 ## How To Run
-Run with sample input:
+Run from random start by providing only `n`:
 ```bash
-python main.py .\test1.txt
+python main.py --n 100
+```
+
+Run from an input board file (`input.txt`):
+```bash
+python main.py --input-file .\test1.txt
 ```
 
 Run with a higher step limit:
 ```bash
-python main.py .\test1.txt --max-steps 300000
+python main.py --input-file .\test1.txt --max-steps 300000
 ```
 
 ## Unit Tests
@@ -95,7 +102,7 @@ Run the unit test suite:
 ```bash
 python -m unittest -v tests\test_nqueens.py
 ```
-Current status: `9/9` tests passing.
+Current status: `10/10` tests passing.
 
 ## Input Generator
 Generate test files:

@@ -101,6 +101,17 @@ class TestStateAndCSP(unittest.TestCase):
         self.assertEqual(set(solver.board), set(range(10)))
         self.assertNotEqual(solver.board, [0] * 10)
 
+    def test_csp_solve_uses_input_board_when_requested(self) -> None:
+        initial_board = [1, 3, 5, 7, 9, 0, 2, 4, 6, 8]
+        solver = NQueensCSP(n=10, initial_board=initial_board, start_mode="input")
+
+        with patch("nqueens.csp.solve_min_conflicts", return_value=True) as mocked:
+            ok = solver.solve(max_steps=5)
+
+        self.assertTrue(ok)
+        self.assertTrue(mocked.called)
+        self.assertEqual(solver.board, initial_board)
+
 
 if __name__ == "__main__":
     unittest.main()
