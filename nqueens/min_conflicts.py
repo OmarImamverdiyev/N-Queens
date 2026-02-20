@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import random
 
-from nqueens.ac3 import ac3, queens_compatible
+from nqueens.ac3 import ac3
 from nqueens.csp_state import NQueensState
 
 
@@ -35,23 +35,27 @@ def _best_columns_for_row(state: NQueensState, row: int) -> tuple[int, list[int]
     return int(min_conf), best_cols
 
 
-def _row_lcv_impact(state: NQueensState, row: int, col: int) -> int:
-    """
-    Approximate how constraining placing (row, col) is for other rows.
+def _cap_domain_values(
+    state: NQueensState,
+    row: int,
+    values: list[int],
+    domain_cap: int,
+) -> set[int]:
+    """Deterministically cap a row domain to keep propagation cheap."""
+    if len(values) <= domain_cap:
+        return set(values)
 
-    Lower is better (LCV).
-    """
-    impact = 0
-    for other_row in range(state.n):
-        if other_row == row:
-            continue
-        other_col = state.board[other_row]
-        if other_col == col or abs(other_col - col) == abs(other_row - row):
-            impact += 1
-    return impact
+    current_col = state.board[row]
+    trimmed = sorted(values, key=lambda col: (abs(col - current_col), col))
+    return set(trimmed[:domain_cap])
 
 
-def _build_domains_from_state(state: NQueensState, rows: list[int]) -> list[set[int]]:
+def _build_domains_from_state(
+    state: NQueensState,
+    rows: list[int],
+    domain_cap: int,
+    use_ac3: bool,
+) -> list[set[int]]:
     """
     Build row domains from current board and propagate with AC-3.
 
@@ -61,9 +65,10 @@ def _build_domains_from_state(state: NQueensState, rows: list[int]) -> list[set[
 
     for row in rows:
         _, best_cols = _best_columns_for_row(state, row)
-        domains[row] = set(best_cols)
+        domains[row] = _cap_domain_values(state, row, best_cols, domain_cap)
 
-    ac3(domains, active_rows=rows)
+    if use_ac3 and len(rows) > 1:
+        ac3(domains, active_rows=rows)
 
     # If propagation empties a row domain, recover with minimum-conflict values
     # to keep iterative search moving instead of stalling.
@@ -71,7 +76,7 @@ def _build_domains_from_state(state: NQueensState, rows: list[int]) -> list[set[
         if domains[row]:
             continue
         _, best_cols = _best_columns_for_row(state, row)
-        domains[row] = set(best_cols)
+        domains[row] = _cap_domain_values(state, row, best_cols, domain_cap)
 
     return domains
 
@@ -86,11 +91,18 @@ def _lcv_order_from_domains(
     neighbors = [other for other in active_rows if other != row]
 
     def elimination_count(col: int) -> int:
+        # For each neighbor row, at most 3 values are ruled out:
+        # same column, and two diagonal columns.
         removed = 0
         for other_row in neighbors:
-            for other_col in domains[other_row]:
-                if not queens_compatible(row, col, other_row, other_col):
-                    removed += 1
+            other_domain = domains[other_row]
+            row_distance = abs(other_row - row)
+            if col in other_domain:
+                removed += 1
+            if col + row_distance in other_domain:
+                removed += 1
+            if col - row_distance in other_domain:
+                removed += 1
         return removed
 
     return sorted(domains[row], key=lambda col: (elimination_count(col), col))
@@ -102,16 +114,30 @@ def solve_min_conflicts(state: NQueensState, max_steps: int = 100_000) -> bool:
 
     Returns `True` if a solution is found before `max_steps`, otherwise `False`.
     """
-    # Small sample keeps per-step cost practical for n up to 1000 while
-    # still applying MRV + tie-breaking + AC-3.
-    sample_size = min(30, state.n)
-    stagnation_limit = max(120, state.n * 6)
-    max_restarts = max(3, min(40, max_steps // max(1, stagnation_limit)))
+    # Adaptive settings keep per-step work bounded for larger n while
+    # preserving MRV/LCV/AC-3 behavior.
+    if state.n >= 400:
+        sample_size = min(8, state.n)
+        domain_cap = min(6, state.n)
+        ac3_period = 6
+        stagnation_limit = max(80, state.n // 2)
+    elif state.n >= 100:
+        sample_size = min(12, state.n)
+        domain_cap = min(8, state.n)
+        ac3_period = 4
+        stagnation_limit = max(100, state.n)
+    else:
+        sample_size = min(30, state.n)
+        domain_cap = min(12, state.n)
+        ac3_period = 1
+        stagnation_limit = max(120, state.n * 6)
+
+    max_restarts = max(4, min(60, max_steps // max(1, stagnation_limit)))
     restarts = 0
     best_conflicted = state.n + 1
     stagnant_steps = 0
 
-    for _ in range(max_steps):
+    for step in range(max_steps):
         conflicted_rows = [
             row for row in range(state.n)
             if state.conflicts(row, state.board[row]) > 0
@@ -152,7 +178,16 @@ def solve_min_conflicts(state: NQueensState, max_steps: int = 100_000) -> bool:
             k=min(sample_size, len(conflicted_rows)),
         )
 
-        domains = _build_domains_from_state(state, sampled_rows)
+        should_propagate = (
+            step % ac3_period == 0
+            or stagnant_steps >= max(8, ac3_period * 2)
+        )
+        domains = _build_domains_from_state(
+            state,
+            sampled_rows,
+            domain_cap=domain_cap,
+            use_ac3=should_propagate,
+        )
 
         row_candidates: list[tuple[int, int, int]] = []
         for row in sampled_rows:
@@ -175,7 +210,10 @@ def solve_min_conflicts(state: NQueensState, max_steps: int = 100_000) -> bool:
         else:
             # Fallback when propagation makes domain empty in sampled scope.
             _, best_cols = _best_columns_for_row(state, row)
-            new_col = min(best_cols, key=lambda col: (_row_lcv_impact(state, row, col), col))
+            new_col = min(
+                best_cols,
+                key=lambda col: (abs(col - state.board[row]), col),
+            )
 
         if new_col == state.board[row] and len(domains[row]) > 1:
             for col in _lcv_order_from_domains(row, domains, sampled_rows):
@@ -184,12 +222,24 @@ def solve_min_conflicts(state: NQueensState, max_steps: int = 100_000) -> bool:
                     break
         elif new_col == state.board[row]:
             # Sideways move fallback when domain offers no alternative.
-            fallback = sorted(
-                (col for col in range(state.n) if col != state.board[row]),
-                key=lambda col: (state.conflicts(row, col), _row_lcv_impact(state, row, col), col),
-            )
-            if fallback:
-                new_col = fallback[0]
+            best_conflict = float("inf")
+            fallback_cols: list[int] = []
+            current_col = state.board[row]
+            for col in range(state.n):
+                if col == current_col:
+                    continue
+                col_conflict = state.conflicts(row, col)
+                if col_conflict < best_conflict:
+                    best_conflict = col_conflict
+                    fallback_cols = [col]
+                elif col_conflict == best_conflict:
+                    fallback_cols.append(col)
+
+            if fallback_cols:
+                new_col = min(
+                    fallback_cols,
+                    key=lambda col: (abs(col - current_col), col),
+                )
 
         state.move_queen(row, new_col)
 

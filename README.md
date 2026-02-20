@@ -5,6 +5,7 @@ Project by: Omar Imamverdiyev, Mehriban Aliyeva
 ## Overview
 This project solves the N-Queens problem on an `n x n` board using a CSP-based iterative search approach.
 The main solver is implemented for the assignment workflow and is designed for `10 <= n <= 1000`.
+Recent updates focus on improving practical performance for larger boards while preserving MRV, LCV, and AC-3 in the search loop.
 
 ## Assignment Requirement Coverage
 
@@ -43,12 +44,30 @@ The main solver is implemented for the assignment workflow and is designed for `
 - Heuristics:
   - MRV-style row selection from propagated domains.
   - LCV value ordering for candidate column moves.
-  - Deterministic tie-breaking.
+  - Tie-breaking rules using stable ordering with randomized selection among exact ties.
 - Constraint propagation:
-  - AC-3 propagation over active row domains.
+  - AC-3 propagation over active row domains (periodic and stagnation-triggered).
   - Implemented in:
     - `nqueens/min_conflicts.py`
     - `nqueens/ac3.py`
+
+## Performance Optimizations
+- AC-3 `revise` was optimized from nested domain scans to constant-time support checks per value:
+  - `nqueens/ac3.py`
+- Domain capping was added before propagation to bound per-step work:
+  - `nqueens/min_conflicts.py`
+- LCV elimination counting was rewritten to use O(neighbors) membership checks:
+  - `nqueens/min_conflicts.py`
+- Solver parameters are adaptive for larger `n`:
+  - `sample_size`
+  - `domain_cap`
+  - `ac3_period`
+  - `stagnation_limit`
+  - Implemented in `nqueens/min_conflicts.py`
+- AC-3 is now run periodically and when stagnation rises, instead of every step:
+  - `nqueens/min_conflicts.py`
+- Sideways-move fallback was simplified to lighter min-conflict tie-breaking logic:
+  - `nqueens/min_conflicts.py`
 
 ## Project Structure
 - `main.py`: CLI entry point, input loading, constraint check for `n`.
@@ -76,6 +95,7 @@ Run the unit test suite:
 ```bash
 python -m unittest -v tests\test_nqueens.py
 ```
+Current status: `9/9` tests passing.
 
 ## Input Generator
 Generate test files:
@@ -92,3 +112,5 @@ python generate_nqueens.py 1000 test1.txt --random
 ## Notes
 - The project solver is stochastic; different runs may take different numbers of steps.
 - For larger `n` (for example `n=1000`), increase `--max-steps` if needed.
+- Large-`n` runtime benchmarks are not included in this repository.
+- Running tests may generate local `__pycache__` files.

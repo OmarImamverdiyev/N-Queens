@@ -18,6 +18,31 @@ def queens_compatible(row_i: int, col_i: int, row_j: int, col_j: int) -> bool:
     return True
 
 
+def _value_has_support(value_i: int, domain_j: set[int], row_distance: int) -> bool:
+    """
+    Fast support check for N-Queens arc constraints.
+
+    For fixed rows `xi` and `xj`, a value `value_i` is incompatible with at most
+    three values in `domain_j`: same column and two diagonals.
+    """
+    if not domain_j:
+        return False
+
+    # At most 3 values can be forbidden; larger domains must contain support.
+    if len(domain_j) > 3:
+        return True
+
+    banned_same = value_i
+    banned_diag_up = value_i + row_distance
+    banned_diag_down = value_i - row_distance
+
+    for value_j in domain_j:
+        if value_j != banned_same and value_j != banned_diag_up and value_j != banned_diag_down:
+            return True
+
+    return False
+
+
 def revise(domains: list[set[int]], xi: int, xj: int) -> bool:
     """
     Remove unsupported values from domain(xi) with respect to xj.
@@ -25,22 +50,19 @@ def revise(domains: list[set[int]], xi: int, xj: int) -> bool:
     A value in xi is removed if there is no compatible value in xj.
     Returns True when at least one value is removed.
     """
-    revised = False
-    to_remove: list[int] = []
+    domain_i = domains[xi]
+    domain_j = domains[xj]
+    row_distance = abs(xi - xj)
 
-    for value_i in domains[xi]:
-        has_support = any(
-            queens_compatible(xi, value_i, xj, value_j)
-            for value_j in domains[xj]
-        )
-        if not has_support:
-            to_remove.append(value_i)
+    to_remove = [
+        value_i for value_i in domain_i
+        if not _value_has_support(value_i, domain_j, row_distance)
+    ]
+    if not to_remove:
+        return False
 
-    for value in to_remove:
-        domains[xi].remove(value)
-        revised = True
-
-    return revised
+    domain_i.difference_update(to_remove)
+    return True
 
 
 def ac3(

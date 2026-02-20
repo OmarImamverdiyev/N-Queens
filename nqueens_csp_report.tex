@@ -1,0 +1,238 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\title{N-Queens as a Constraint Satisfaction Problem:\\Mathematical Formulation and Solution Methods}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This document presents a mathematical, implementation-independent view of the N-Queens problem as a Constraint Satisfaction Problem (CSP). It explains the CSP model, iterative local search (min-conflicts), the MRV and LCV heuristics, tie-breaking rules, and AC-3 constraint propagation. Worked examples are included to show how each method operates in practice.
+\end{abstract}
+
+\section{Problem Statement}
+Given an integer $n$, place $n$ queens on an $n \times n$ chessboard such that no two queens attack each other.
+
+Project constraints:
+\begin{itemize}[leftmargin=*]
+  \item $10 \le n \le 1000$.
+  \item Input is a file with $n$ lines; line $i$ stores the column of the queen in row $i$.
+  \item Comments and blank lines may be present in the file.
+\end{itemize}
+
+The required algorithmic ingredients are:
+\begin{enumerate}[leftmargin=*]
+  \item A CSP search algorithm.
+  \item Heuristics: MRV, LCV, tie-breaking.
+  \item Constraint propagation via AC-3.
+\end{enumerate}
+
+\section{CSP Formulation}
+\subsection{Variables and Domains}
+Use one variable per row:
+\[
+X_i \in \{0,1,\dots,n-1\}, \quad i=0,\dots,n-1,
+\]
+where $X_i$ is the column chosen for row $i$.
+
+\subsection{Constraints}
+For all pairs $i \ne j$:
+\begin{align}
+X_i &\ne X_j \quad \text{(different columns)}, \\
+|X_i - X_j| &\ne |i - j| \quad \text{(different diagonals)}.
+\end{align}
+
+So each pair of rows is linked by a binary constraint. The CSP graph is complete.
+
+\subsection{Objective View for Local Search}
+For local search, define conflict count:
+\[
+F(X) = \sum_{0 \le i < j < n}
+\mathbf{1}[X_i = X_j \ \lor\ |X_i-X_j| = |i-j|].
+\]
+Any assignment with $F(X)=0$ is a valid N-Queens solution.
+
+\section{Iterative Local Search: Min-Conflicts}
+\subsection{Why Iterative Search Fits Large $n$}
+Backtracking is complete but can be expensive on large boards. Min-conflicts scales better in practice for large $n$, especially with good heuristics and restarts.
+
+\subsection{General Procedure}
+\begin{algorithm}[h]
+\caption{Iterative Min-Conflicts for N-Queens}
+\begin{algorithmic}[1]
+\State Initialize a complete assignment $X$ (typically random, one queen per column)
+\For{$t = 1$ to \textit{maxSteps}}
+  \If{$F(X)=0$}
+    \State \Return $X$
+  \EndIf
+  \State Select a conflicted row $r$ using a row-selection heuristic (MRV + tie-break)
+  \State Select a column $c$ for row $r$ using LCV (with tie-breaking)
+  \State Set $X_r \gets c$
+  \State Optionally use random restart if progress stalls
+\EndFor
+\State \Return failure (step limit reached)
+\end{algorithmic}
+\end{algorithm}
+
+\section{Heuristics}
+\subsection{MRV: Minimum Remaining Values}
+MRV chooses the row with smallest current feasible domain:
+\[
+r^* = \arg\min_{r \in U} |D_r|,
+\]
+where $U$ is the set of candidate rows and $D_r$ is row $r$'s current domain after propagation.
+
+Intuition: prioritize the most constrained variable first.
+
+\subsection{LCV: Least Constraining Value}
+For a selected row $r$, LCV chooses the column that eliminates the fewest values from neighboring domains:
+\[
+\text{LCVScore}(r,c) =
+\sum_{j \in N(r)}
+\left| \left\{ d \in D_j \mid (r,c) \text{ conflicts with } (j,d) \right\} \right|.
+\]
+Choose $c$ minimizing $\text{LCVScore}(r,c)$.
+
+Intuition: leave maximal flexibility for future decisions.
+
+\subsection{Tie-Breaking}
+If MRV or LCV has ties, apply explicit tie-break rules. Common choices:
+\begin{itemize}[leftmargin=*]
+  \item Deterministic: smaller row index, smaller column index.
+  \item Conflict-aware: prefer row with larger current conflict count.
+  \item Stochastic: random among exact ties.
+\end{itemize}
+Tie-breaking stabilizes behavior and helps avoid cyclic behavior.
+
+\section{Constraint Propagation with AC-3}
+\subsection{Arc Consistency}
+An arc $(X_i, X_j)$ is consistent if for every value $a \in D_i$, there exists some $b \in D_j$ such that constraints between $X_i$ and $X_j$ are satisfied.
+
+\subsection{Revise Step}
+\[
+\text{Revise}(D_i,D_j): \quad
+D_i \gets D_i \setminus
+\{a \in D_i \mid \nexists b \in D_j \ \text{compatible}(a,b)\}.
+\]
+If $D_i$ changes, neighboring arcs must be reconsidered.
+
+\subsection{AC-3 Algorithm Sketch}
+\begin{algorithm}[h]
+\caption{AC-3}
+\begin{algorithmic}[1]
+\State Initialize queue with arcs $(X_i,X_j)$, $i \ne j$
+\While{queue not empty}
+  \State Pop $(X_i,X_j)$
+  \If{\textsc{Revise}$(D_i,D_j)$}
+    \If{$D_i = \varnothing$}
+      \State \Return inconsistent
+    \EndIf
+    \For{each neighbor $X_k$ of $X_i$, $k \ne j$}
+      \State Add $(X_k,X_i)$ to queue
+    \EndFor
+  \EndIf
+\EndWhile
+\State \Return arc-consistent domains
+\end{algorithmic}
+\end{algorithm}
+
+\section{Worked Examples}
+\subsection{Example 1: CSP Constraints for $n=4$}
+Variables: $X_0,X_1,X_2,X_3 \in \{0,1,2,3\}$.
+
+One valid solution is:
+\[
+(X_0,X_1,X_2,X_3)=(1,3,0,2).
+\]
+Check quickly:
+\begin{itemize}[leftmargin=*]
+  \item All columns are distinct.
+  \item For every pair $(i,j)$, $|X_i-X_j| \ne |i-j|$.
+\end{itemize}
+So this assignment satisfies all constraints.
+
+\subsection{Example 2: One AC-3 Revise Operation}
+Suppose in some step:
+\[
+D_1 = \{2\}, \quad D_3 = \{0,2,4\}.
+\]
+Rows differ by $|3-1|=2$.
+
+If $X_1=2$, then for row $3$:
+\begin{itemize}[leftmargin=*]
+  \item Column $2$ is forbidden (same column).
+  \item Columns $0$ and $4$ are forbidden (diagonals: $2\pm2$).
+\end{itemize}
+So every value in $D_3$ loses support, and
+\[
+D_3 \gets \varnothing.
+\]
+AC-3 immediately detects inconsistency in this branch/state.
+
+\subsection{Example 3: MRV + LCV + Tie-Break}
+Assume active rows $\{2,5,7\}$ with domains:
+\[
+|D_2|=2,\quad |D_5|=3,\quad |D_7|=2.
+\]
+MRV tie is between rows $2$ and $7$.
+
+If tie-break says ``pick row with larger current conflicts'' and row $7$ is worse, choose row $7$.
+
+Now for row $7$, suppose:
+\[
+\text{LCVScore}(7,2)=3,\quad \text{LCVScore}(7,5)=1.
+\]
+Choose column $5$ because it constrains neighbors less.
+
+\subsection{Example 4: Min-Conflicts Move}
+For $n=8$, start with diagonal assignment:
+\[
+X=[0,1,2,3,4,5,6,7].
+\]
+Each queen has severe diagonal conflicts. If we select row $3$ and evaluate candidate columns, moving to a low-conflict column (for example one with only $1$ conflict instead of $7$) decreases $F(X)$ sharply. Repeating this process usually converges quickly with restarts when plateaus occur.
+
+\section{Alternative Method: Full Backtracking CSP}
+Another valid CSP approach is complete search:
+\begin{itemize}[leftmargin=*]
+  \item Backtracking assignment by assignment.
+  \item MRV for variable order.
+  \item LCV for value order.
+  \item AC-3 after each assignment.
+\end{itemize}
+This method is complete (finds a solution if one exists), but for large $n$ it is generally less practical than iterative min-conflicts.
+
+\section{Complexity Notes}
+\begin{itemize}[leftmargin=*]
+  \item N-Queens has $n$ variables and domain size up to $n$.
+  \item The binary-constraint graph is dense ($\Theta(n^2)$ arcs).
+  \item AC-3 improves pruning but has overhead, so in iterative solvers it is often applied selectively.
+  \item Min-conflicts is incomplete but empirically strong for large N-Queens.
+\end{itemize}
+
+\section{Mapping to Project Requirements}
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Requirement & Mathematical method \\
+\midrule
+Iterative search & Min-conflicts local search \\
+MRV heuristic & Choose row with smallest propagated domain \\
+LCV heuristic & Choose value minimizing neighbor eliminations \\
+Tie-breaking rules & Deterministic and/or randomized exact-tie rules \\
+Constraint propagation & AC-3 on row-domain arcs \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Conclusion}
+N-Queens fits naturally as a CSP with binary non-attacking constraints. For large-board constraints such as $10 \le n \le 1000$, an iterative min-conflicts method augmented with MRV, LCV, tie-breaking, and AC-3 offers a practical balance between CSP rigor and scalability.
+
+\end{document}
