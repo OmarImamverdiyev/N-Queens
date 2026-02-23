@@ -2,6 +2,8 @@
 
 Project by: Omar Imamverdiyev, Mehriban Aliyeva
 
+## Github Repo for this project: https://github.com/OmarImamverdiyev/N-Queens
+
 ## Overview
 This project solves the N-Queens problem on an `n x n` board using a CSP-based iterative search approach.
 The main solver is implemented for the assignment workflow and is designed for `10 <= n <= 1000`.
