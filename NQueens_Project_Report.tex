@@ -1,0 +1,153 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+
+\title{N-Queens CSP Project Report}
+\author{Omar Imamverdiyev \and Mehriban Aliyeva}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+This project solves the N-Queens problem on an $n \times n$ board with a CSP-guided iterative search approach. The implementation is designed for the assignment range $10 \le n \le 1000$. In practice, the solver combines local search speed with CSP heuristics (MRV, LCV, AC-3) to stay effective on large boards.
+
+\section{Problem and Input Format}
+The board is represented as a list where index = row and value = column. This means each row has exactly one queen. Input files follow the same rule: one integer per line.
+
+The parser supports:
+\begin{itemize}
+  \item blank lines,
+  \item inline comments after \texttt{\#},
+  \item strict validation that values form a permutation of \texttt{0..n-1}.
+\end{itemize}
+
+Example (\texttt{test1.txt}) starts as:
+\begin{verbatim}
+0
+2
+4
+6
+...
+\end{verbatim}
+
+\section{How to Run}
+\subsection{Requirements}
+Python 3.9+ is enough for this repository. No extra third-party packages are required.
+
+\subsection{Main Commands}
+Run from a random initial board:
+\begin{verbatim}
+python main.py --n 100
+\end{verbatim}
+
+Run from an input file:
+\begin{verbatim}
+python main.py --input-file .\test1.txt
+\end{verbatim}
+
+Increase iteration budget for harder cases:
+\begin{verbatim}
+python main.py --input-file .\test1.txt --max-steps 300000
+\end{verbatim}
+
+Run unit tests:
+\begin{verbatim}
+python -m unittest -v tests\test_nqueens.py
+\end{verbatim}
+
+\subsection{Basic Example: Running \texttt{test1.txt}}
+Command:
+\begin{verbatim}
+python -B main.py --input-file .\test1.txt
+\end{verbatim}
+
+Observed output format:
+\begin{verbatim}
+Solution found!
+[7, 4, 2, 9, 14, 6, 10, 12, 1, 5, 0, 13, 3, 8, 11]
+Valid: True
+\end{verbatim}
+
+\section{Main Features}
+The project includes the following practical features:
+\begin{itemize}
+  \item Two start modes: random board generation (\texttt{--n}) or direct input-file solving (\texttt{--input-file}).
+  \item Fast conflict evaluation with incremental counters for columns and diagonals.
+  \item CSP heuristics in local search: MRV for row choice, LCV for value ordering, AC-3 for propagation.
+  \item Restart and plateau-escape logic, so the solver can recover when progress stalls.
+  \item Input generator utility (\texttt{generate\_nqueens.py}) for random, easy, and hard test cases.
+\end{itemize}
+
+\section{How We Managed to Solve \texttt{n=1000}}
+Solving $n=1000$ is mainly a scalability problem: each step must stay cheap, and the search must avoid long plateaus. The implementation addresses this with a combination of data structures, heuristics, and adaptive control.
+
+\subsection{1) O(1) Conflict Computation}
+The state object maintains three counter arrays:
+\begin{itemize}
+  \item queen count per column,
+  \item queen count per main diagonal,
+  \item queen count per anti-diagonal.
+\end{itemize}
+Because of this, checking conflicts for a candidate move is constant time, and moving one queen updates counters incrementally.
+
+\subsection{2) Min-Conflicts as the Search Backbone}
+Instead of full backtracking for large boards, the solver uses iterative min-conflicts. Each iteration moves one conflicted queen to a better column. This is generally much more practical for large $n$.
+
+\subsection{3) MRV + LCV in a Bounded Way}
+To keep the CSP behavior but control runtime:
+\begin{itemize}
+  \item MRV is applied on a sampled subset of conflicted rows (not all rows every step).
+  \item Domains are built from minimum-conflict columns and then capped (\texttt{domain\_cap}) before propagation.
+  \item LCV ordering uses fast elimination estimates based on column/diagonal memberships.
+\end{itemize}
+This keeps heuristics informative while avoiding expensive full-board domain processing on every move.
+
+\subsection{4) Selective AC-3 Propagation}
+AC-3 is not forced at every step. It runs periodically and also when stagnation starts increasing. The AC-3 support test is optimized for N-Queens constraints, so \texttt{revise} avoids expensive nested scans.
+
+\subsection{5) Restarts and Noisy Escapes}
+If progress stalls, the solver performs random restarts up to a budget. If restart budget is exhausted, it forces a noisy move to break plateaus. This prevents the search from getting trapped in repetitive local minima.
+
+\subsection{6) Adaptive Parameters for Large \texttt{n}}
+For larger boards, the solver automatically adjusts:
+\begin{itemize}
+  \item sampled rows per step,
+  \item domain cap size,
+  \item AC-3 frequency,
+  \item stagnation thresholds.
+\end{itemize}
+These adaptive settings bound per-step cost and are a key reason the same solver can handle both small and very large inputs.
+
+\subsection{Observed Large-\texttt{n} Run}
+In this environment, the command below returned a valid solution:
+\begin{verbatim}
+python -B main.py --n 1000 --max-steps 200000
+\end{verbatim}
+One measured run completed in about 15.75 seconds and printed \texttt{Valid: True}.
+
+\section{Project Structure}
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+File & Role \\
+\midrule
+\texttt{main.py} & CLI entry point and mode selection \\
+\texttt{nqueens/csp.py} & Solver wrapper and compatibility API \\
+\texttt{nqueens/csp\_state.py} & Board state and O(1) conflict counters \\
+\texttt{nqueens/min\_conflicts.py} & Iterative search with MRV/LCV/AC-3/restarts \\
+\texttt{nqueens/ac3.py} & Arc-consistency propagation primitives \\
+\texttt{nqueens/io\_utils.py} & Input parsing and validation \\
+\texttt{tests/test\_nqueens.py} & Unit tests \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Limitations and Notes}
+The solver is stochastic, so runtime can vary between runs. Very hard starting boards may require a larger \texttt{--max-steps}. The included backtracking module is exact but is not the default in \texttt{main.py} because iterative search is the practical choice for large $n$.
+
+\section{Conclusion}
+This project delivers a readable and practical CSP-based N-Queens solver with strong large-$n$ behavior. The main result is that combining min-conflicts with MRV, LCV, selective AC-3, and restart heuristics makes solving up to $n=1000$ feasible in normal command-line usage.
+
+\end{document}
