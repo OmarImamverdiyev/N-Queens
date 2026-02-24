@@ -1,7 +1,7 @@
 """
 Core board state and conflict counters for N-Queens.
 
-Authors: Omar Imamverdiyev, Mehriban Aliyeva
+@Authors: Omar Imamverdiyev, Mehriban Aliyeva
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ class NQueensState:
     diag2_count: list[int] = field(init=False)
 
     def __post_init__(self) -> None:
+        """Initialize board and rebuild all conflict counters."""
         if not self.board:
             # Random permutation guarantees one queen per column.
             self.board = random.sample(range(self.n), self.n)

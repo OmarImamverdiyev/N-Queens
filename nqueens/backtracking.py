@@ -1,7 +1,7 @@
 """
 Backtracking CSP solver with MRV, LCV, tie-breaking, and AC-3.
 
-Authors: Omar Imamverdiyev, Mehriban Aliyeva
+@Authors: Omar Imamverdiyev, Mehriban Aliyeva
 """
 
 from __future__ import annotations
@@ -39,6 +39,7 @@ def _lcv_order(
     unassigned_neighbors = [r for r in range(n) if r not in assigned and r != row]
 
     def elimination_count(col: int) -> int:
+        """Count how many neighbor-domain values become invalid for `col`."""
         removed = 0
         for other_row in unassigned_neighbors:
             for other_col in domains[other_row]:
@@ -54,6 +55,7 @@ def _backtrack(
     assigned: set[int],
     n: int,
 ) -> list[int] | None:
+    """Recursively assign rows using MRV/LCV with AC-3 propagation."""
     if len(assigned) == n:
         return [next(iter(domains[row])) for row in range(n)]
 

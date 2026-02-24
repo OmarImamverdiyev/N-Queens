@@ -1,5 +1,12 @@
+"""
+Utility script to generate N-Queens input boards in different difficulty modes.
+
+@Authors: Omar Imamverdiyev, Mehriban Aliyeva
+"""
+
 import random
 import sys
+
 
 def generate_random_board(n):
     """Generate a random board with exactly one queen per column."""
@@ -83,13 +90,15 @@ def generate_anti_diagonal(n):
 
 
 def write_board(board, filename):
+    """Write board values to a file using one column index per line."""
     with open(filename, "w") as f:
         for col in board:
             f.write(str(col) + "\n")
 
 
 if __name__ == "__main__":
-
+    # CLI format:
+    # python generate_nqueens.py <n> <output_file> [mode]
     if len(sys.argv) < 3:
         print("Usage:")
         print("  python generate_nqueens.py <n> <output_file> [--random | --easy | --solution | --hard-diagonal | --hard-anti]")

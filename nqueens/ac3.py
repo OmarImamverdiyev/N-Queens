@@ -1,7 +1,7 @@
 """
 AC-3 constraint propagation for N-Queens.
 
-Authors: Omar Imamverdiyev, Mehriban Aliyeva
+@Authors: Omar Imamverdiyev, Mehriban Aliyeva
 """
 
 from __future__ import annotations

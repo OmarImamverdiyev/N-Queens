@@ -1,4 +1,8 @@
-"""General utility helpers for N-Queens."""
+"""
+General utility helpers for N-Queens.
+
+@Authors: Omar Imamverdiyev, Mehriban Aliyeva
+"""
 
 
 def is_valid(board):

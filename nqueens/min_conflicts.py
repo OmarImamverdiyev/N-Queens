@@ -1,7 +1,7 @@
 """
 Min-conflicts search for N-Queens.
 
-Authors: Omar Imamverdiyev, Mehriban Aliyeva
+@Authors: Omar Imamverdiyev, Mehriban Aliyeva
 """
 
 from __future__ import annotations
@@ -91,6 +91,7 @@ def _lcv_order_from_domains(
     neighbors = [other for other in active_rows if other != row]
 
     def elimination_count(col: int) -> int:
+        """Count how many neighbor-domain values would be removed by `col`."""
         # For each neighbor row, at most 3 values are ruled out:
         # same column, and two diagonal columns.
         removed = 0

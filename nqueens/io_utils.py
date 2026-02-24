@@ -1,4 +1,8 @@
-"""Input/output helpers for N-Queens files."""
+"""
+Input/output helpers for N-Queens files.
+
+@Authors: Omar Imamverdiyev, Mehriban Aliyeva
+"""
 
 
 def read_input(filename):

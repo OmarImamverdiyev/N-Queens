@@ -1,4 +1,10 @@
-﻿import os
+"""
+Unit tests for N-Queens CSP modules.
+
+@Authors: Omar Imamverdiyev, Mehriban Aliyeva
+"""
+
+import os
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -11,7 +17,10 @@ from nqueens.utils import is_valid
 
 
 class TestIOUtils(unittest.TestCase):
+    """Tests for input parsing and validation behavior."""
+
     def _write_temp(self, content: str) -> str:
+        """Create a temporary file with provided content and return its path."""
         fd, path = tempfile.mkstemp(text=True)
         os.close(fd)
         with open(path, "w", encoding="utf-8") as f:
@@ -19,14 +28,17 @@ class TestIOUtils(unittest.TestCase):
         return path
 
     def test_read_input_supports_comments_and_blanks(self) -> None:
-        path = self._write_temp("""
+        """Parser should ignore comment text and blank lines."""
+        path = self._write_temp(
+            """
             # sample board
             1
 
             3   # row 1
             0
             2
-        """)
+        """
+        )
         try:
             board = read_input(path)
             self.assertEqual(board, [1, 3, 0, 2])
@@ -34,6 +46,7 @@ class TestIOUtils(unittest.TestCase):
             os.remove(path)
 
     def test_read_input_rejects_duplicate_columns(self) -> None:
+        """Parser should reject boards with repeated columns."""
         path = self._write_temp("0\n1\n1\n3\n")
         try:
             with self.assertRaises(ValueError):
@@ -42,6 +55,7 @@ class TestIOUtils(unittest.TestCase):
             os.remove(path)
 
     def test_read_input_rejects_out_of_range_column(self) -> None:
+        """Parser should reject columns outside the valid range."""
         path = self._write_temp("0\n1\n4\n3\n")
         try:
             with self.assertRaises(ValueError):
@@ -51,24 +65,32 @@ class TestIOUtils(unittest.TestCase):
 
 
 class TestAC3(unittest.TestCase):
+    """Tests for arc-consistency helpers and propagation."""
+
     def test_queens_compatible(self) -> None:
+        """Compatibility check should detect attacks correctly."""
         self.assertFalse(queens_compatible(0, 0, 1, 0))
         self.assertFalse(queens_compatible(0, 0, 1, 1))
         self.assertTrue(queens_compatible(0, 1, 1, 3))
 
     def test_revise_removes_unsupported_values(self) -> None:
+        """Revise should prune values that have no supporting neighbor value."""
         domains = [{0, 1, 2}, {0}]
         changed = revise(domains, 0, 1)
         self.assertTrue(changed)
         self.assertEqual(domains[0], {2})
 
     def test_ac3_detects_inconsistency(self) -> None:
+        """AC-3 should return False if propagation empties a domain."""
         domains = [{0, 1}, {0, 1}]
         self.assertFalse(ac3(domains))
 
 
 class TestStateAndCSP(unittest.TestCase):
+    """Tests for state updates, validation, and wrapper behavior."""
+
     def test_state_move_queen_updates_counts(self) -> None:
+        """Moving a queen should keep all conflict counters consistent."""
         state = NQueensState(n=4, board=[1, 3, 0, 2])
         state.move_queen(0, 2)
 
@@ -85,10 +107,12 @@ class TestStateAndCSP(unittest.TestCase):
         self.assertEqual(state.diag2_count, expected_diag2)
 
     def test_is_valid(self) -> None:
+        """Board validator should accept only non-attacking placements."""
         self.assertTrue(is_valid([1, 3, 0, 2]))
         self.assertFalse(is_valid([0, 1, 2, 3]))
 
     def test_csp_solve_resets_to_random_permutation(self) -> None:
+        """Random mode should reset state to a permutation board."""
         solver = NQueensCSP(n=10, initial_board=[0] * 10)
 
         with patch("nqueens.csp.solve_min_conflicts", return_value=True) as mocked:
@@ -102,6 +126,7 @@ class TestStateAndCSP(unittest.TestCase):
         self.assertNotEqual(solver.board, [0] * 10)
 
     def test_csp_solve_uses_input_board_when_requested(self) -> None:
+        """Input mode should preserve the provided initial board."""
         initial_board = [1, 3, 5, 7, 9, 0, 2, 4, 6, 8]
         solver = NQueensCSP(n=10, initial_board=initial_board, start_mode="input")
 

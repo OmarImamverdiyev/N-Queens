@@ -5,7 +5,7 @@ This wrapper keeps the old `NQueensCSP` API while delegating work to:
 - `nqueens.csp_state.NQueensState` for board/counter management
 - `nqueens.min_conflicts.solve_min_conflicts` for project solving logic
 
-Authors: Omar Imamverdiyev, Mehriban Aliyeva
+@Authors: Omar Imamverdiyev, Mehriban Aliyeva
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ class NQueensCSP:
         initial_board: list[int] | None = None,
         start_mode: str = "random",
     ):
+        """Create solver state and preserve startup configuration."""
         self.state = NQueensState(n=n, board=initial_board or [])
         self.n = self.state.n
         self._initial_board = (initial_board or []).copy()
