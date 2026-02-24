@@ -28,6 +28,7 @@ class NQueensCSP:
         self.n = self.state.n
         self._initial_board = (initial_board or []).copy()
         self.start_mode = start_mode
+        self.start_board: list[int] = self.state.board.copy()
 
     @property
     def board(self) -> list[int]:
@@ -48,4 +49,5 @@ class NQueensCSP:
             self.state = NQueensState(n=self.n, board=[])
         else:
             raise ValueError(f"Unknown start_mode: {self.start_mode!r}")
+        self.start_board = self.state.board.copy()
         return solve_min_conflicts(self.state, max_steps=max_steps)

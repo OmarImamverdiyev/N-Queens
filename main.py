@@ -49,8 +49,12 @@ def main() -> None:
         raise ValueError(f"n must be between 10 and 1000, got {n}")
 
     solver = NQueensCSP(n, initial_board, start_mode=start_mode)
+    solved = solver.solve(max_steps=args.max_steps)
 
-    if solver.solve(max_steps=args.max_steps):
+    print("Start state:")
+    print(solver.start_board)
+
+    if solved:
         print("Solution found!")
         print(solver.board)
         print("Valid:", is_valid(solver.board))
